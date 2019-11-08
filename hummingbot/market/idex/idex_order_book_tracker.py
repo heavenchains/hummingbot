@@ -4,33 +4,17 @@ import asyncio
 import bisect
 import logging
 import time
-from collections import (
-  defaultdict,
-  deque
-)
-from typing import (
-    Deque,
-    Dict,
-    List,
-    Optional,
-    Set
-)
+from collections import defaultdict, deque
+from typing import Deque, Dict, List, Optional, Set
 
 from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book_tracker import (
-    OrderBookTracker,
-    OrderBookTrackerDataSourceType
-)
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker, OrderBookTrackerDataSourceType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.market.idex.idex_order_book import IDEXOrderBook
 from hummingbot.market.idex.idex_active_order_tracker import IDEXActiveOrderTracker
 from hummingbot.market.idex.idex_api_order_book_data_source import IDEXAPIOrderBookDataSource
-from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessageType,
-    IDEXOrderBookMessage,
-    OrderBookMessage,
-)
+from hummingbot.core.data_type.order_book_message import OrderBookMessageType, IDEXOrderBookMessage, OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_entry import IDEXOrderBookTrackerEntry
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
@@ -44,10 +28,12 @@ class IDEXOrderBookTracker(OrderBookTracker):
             cls._iobt_logger = logging.getLogger(__name__)
         return cls._iobt_logger
 
-    def __init__(self,
-                 idex_api_key: str,
-                 data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API,
-                 symbols: Optional[List[str]] = None):
+    def __init__(
+        self,
+        idex_api_key: str,
+        data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API,
+        symbols: Optional[List[str]] = None,
+    ):
         super().__init__(data_source_type=data_source_type)
         self._idex_api_key = idex_api_key
         self._past_diffs_windows: Dict[str, Deque] = {}
@@ -81,22 +67,17 @@ class IDEXOrderBookTracker(OrderBookTracker):
         self._order_book_snapshot_listener_task = safe_ensure_future(
             self.data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
         )
-        self._refresh_tracking_task = safe_ensure_future(
-            self._refresh_tracking_loop()
-        )
-        self._order_book_diff_router_task = safe_ensure_future(
-            self._order_book_diff_router()
-        )
-        self._order_book_snapshot_router_task = safe_ensure_future(
-            self._order_book_snapshot_router()
-        )
+        self._refresh_tracking_task = safe_ensure_future(self._refresh_tracking_loop())
+        self._order_book_diff_router_task = safe_ensure_future(self._order_book_diff_router())
+        self._order_book_snapshot_router_task = safe_ensure_future(self._order_book_snapshot_router())
 
     async def _refresh_tracking_tasks(self):
         """
         Starts tracking for any new trading pairs, and stop tracking for any inactive trading pairs.
         """
-        tracking_symbols: Set[str] = set([key for key in self._tracking_tasks.keys()
-                                          if not self._tracking_tasks[key].done()])
+        tracking_symbols: Set[str] = set(
+            [key for key in self._tracking_tasks.keys() if not self._tracking_tasks[key].done()]
+        )
         available_pairs: Dict[str, IDEXOrderBookTrackerEntry] = await self.data_source.get_tracking_pairs()
         available_symbols: Set[str] = set(available_pairs.keys())
         new_symbols: Set[str] = available_symbols - tracking_symbols
@@ -147,26 +128,37 @@ class IDEXOrderBookTracker(OrderBookTracker):
                 await message_queue.put(ob_message)
 
                 if ob_message.content["event"] == "market_trades":  # put trade messages to trade queue
-                    trade_type = float(TradeType.BUY.value) if ob_message.content["type"].upper() == "BUY" \
+                    trade_type = (
+                        float(TradeType.BUY.value)
+                        if ob_message.content["type"].upper() == "BUY"
                         else float(TradeType.SELL.value)
-                    self._order_book_trade_stream.put_nowait(OrderBookMessage(OrderBookMessageType.TRADE, {
-                        "symbol": ob_message.content["market"],
-                        "trade_type": trade_type,
-                        "trade_id": ob_message.content["tid"],
-                        "update_id": ob_message.timestamp,
-                        "price": ob_message.content["price"],
-                        "amount": ob_message.content["amount"]
-                    }, timestamp=ob_message.timestamp))
+                    )
+                    self._order_book_trade_stream.put_nowait(
+                        OrderBookMessage(
+                            OrderBookMessageType.TRADE,
+                            {
+                                "symbol": ob_message.content["market"],
+                                "trade_type": trade_type,
+                                "trade_id": ob_message.content["tid"],
+                                "update_id": ob_message.timestamp,
+                                "price": ob_message.content["price"],
+                                "amount": ob_message.content["amount"],
+                            },
+                            timestamp=ob_message.timestamp,
+                        )
+                    )
 
                 messages_accepted += 1
 
                 # Log some statistics.
                 now: float = time.time()
                 if int(now / 60.0) > int(last_message_timestamp / 60.0):
-                    self.logger().debug("Diff messages processed: %d, rejected: %d, queued: %d",
-                                        messages_accepted,
-                                        messages_rejected,
-                                        messages_queued)
+                    self.logger().debug(
+                        "Diff messages processed: %d, rejected: %d, queued: %d",
+                        messages_accepted,
+                        messages_rejected,
+                        messages_queued,
+                    )
                     messages_accepted = 0
                     messages_rejected = 0
                     messages_queued = 0
@@ -178,7 +170,7 @@ class IDEXOrderBookTracker(OrderBookTracker):
                 self.logger().network(
                     f"Unexpected error routing order book messages.",
                     exc_info=True,
-                    app_warning_msg=f"Unexpected error routing order book messages. Retrying after 5 seconds."
+                    app_warning_msg=f"Unexpected error routing order book messages. Retrying after 5 seconds.",
                 )
                 await asyncio.sleep(5.0)
 
@@ -188,7 +180,7 @@ class IDEXOrderBookTracker(OrderBookTracker):
         message_queue: asyncio.Queue = self._tracking_message_queues[symbol]
         order_book: IDEXOrderBook = self._order_books[symbol]
         active_order_tracker: IDEXActiveOrderTracker = self._active_order_trackers[symbol]
-        last_message_timestamp: float = time.time() 
+        last_message_timestamp: float = time.time()
         diff_messages_accepted: int = 0
 
         while True:
@@ -212,8 +204,7 @@ class IDEXOrderBookTracker(OrderBookTracker):
                     # Output some statistics periodically.
                     now: float = time.time()
                     if int(now / 60.0) > int(last_message_timestamp / 60.0):
-                        self.logger().debug("Processed %d order book diffs for %s.",
-                                           diff_messages_accepted, symbol)
+                        self.logger().debug("Processed %d order book diffs for %s.", diff_messages_accepted, symbol)
                         diff_messages_accepted = 0
                     last_message_timestamp = now
                     # pass
@@ -235,6 +226,6 @@ class IDEXOrderBookTracker(OrderBookTracker):
                 self.logger().network(
                     f"Unexpected error tracking order book for {symbol}.",
                     exc_info=True,
-                    app_warning_msg=f"Unexpected error tracking order book. Retrying after 5 seconds."
+                    app_warning_msg=f"Unexpected error tracking order book. Retrying after 5 seconds.",
                 )
                 await asyncio.sleep(5.0)

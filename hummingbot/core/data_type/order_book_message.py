@@ -148,14 +148,21 @@ class DDEXOrderBookMessage(OrderBookMessage):
 
 
 class DolomiteOrderBookMessage(OrderBookMessage):
-    def __new__(cls, message_type: OrderBookMessageType, content: Dict[str, any], timestamp: Optional[float] = None,
-                *args, **kwargs):
+    def __new__(
+        cls,
+        message_type: OrderBookMessageType,
+        content: Dict[str, any],
+        timestamp: Optional[float] = None,
+        *args,
+        **kwargs,
+    ):
         if timestamp is None:
             if message_type is OrderBookMessageType.SNAPSHOT:
                 raise ValueError("timestamp must not be None when initializing snapshot messages.")
             timestamp = int(time.time())
-        return super(DolomiteOrderBookMessage, cls).__new__(cls, message_type, content,
-                                                            timestamp=timestamp, *args, **kwargs)
+        return super(DolomiteOrderBookMessage, cls).__new__(
+            cls, message_type, content, timestamp=timestamp, *args, **kwargs
+        )
 
     @property
     def update_id(self) -> int:
@@ -514,9 +521,7 @@ class TEXOrderBookMessage(OrderBookMessage):
             if message_type is OrderBookMessageType.SNAPSHOT:
                 raise ValueError("timestamp must not be None when initializing snapshot messages.")
             timestamp = content["time"] * 1e-3
-        return super(TEXOrderBookMessage, cls).__new__(
-            cls, message_type, content, timestamp=timestamp, *args, **kwargs
-        )
+        return super(TEXOrderBookMessage, cls).__new__(cls, message_type, content, timestamp=timestamp, *args, **kwargs)
 
     @property
     def update_id(self) -> int:
@@ -528,17 +533,17 @@ class TEXOrderBookMessage(OrderBookMessage):
 
     @property
     def symbol(self) -> str:
-        return self.content["symbol"]
+        return self.content["marketId"]
 
     @property
     def asks(self) -> List[OrderBookRow]:
         sell_orders = self.map_orders(False, self.content["sell_orders"])
-        return list(map(lambda order: OrderBookRow(order['price'], order['amount'], self.update_id), sell_orders))
+        return list(map(lambda order: OrderBookRow(order["price"], order["amount"], self.update_id), sell_orders))
 
     @property
     def bids(self) -> List[OrderBookRow]:
         buy_orders = self.map_orders(True, self.content["buy_orders"])
-        return list(map(lambda order: OrderBookRow(order['price'], order['amount'], self.update_id), buy_orders))
+        return list(map(lambda order: OrderBookRow(order["price"], order["amount"], self.update_id), buy_orders))
 
     @property
     def has_update_id(self) -> bool:
@@ -552,10 +557,14 @@ class TEXOrderBookMessage(OrderBookMessage):
         processed_orders = []
         for order in orders:
             processed_order = {}
-            filled_percentage = 1 - float(order['remaining_out']) / float(order['amount'])
-            amount_initial = float(order['amount_swapped']) if isBuy is True else float(order['amount'])
-            processed_order['amount'] = amount_initial - amount_initial * filled_percentage
-            processed_order['price'] = float(order['amount']) / float(order['amount_swapped']) if isBuy is True else float(order['amount_swapped']) / float(order['amount'])
+            filled_percentage = 1 - float(order["remaining_out"]) / float(order["amount"])
+            amount_initial = float(order["amount_swapped"]) if isBuy is True else float(order["amount"])
+            processed_order["amount"] = amount_initial - amount_initial * filled_percentage
+            processed_order["price"] = (
+                float(order["amount"]) / float(order["amount_swapped"])
+                if isBuy is True
+                else float(order["amount_swapped"]) / float(order["amount"])
+            )
             processed_orders.append(processed_order)
 
         return processed_orders

@@ -61,7 +61,7 @@ cdef class Web3Wallet(WalletBase):
                  private_key: any,
                  backend_urls: List[str],
                  erc20_token_addresses: List[str],
-                 chain: EthereumChain = EthereumChain.ROPSTEN):
+                 chain: EthereumChain = EthereumChain.RINKEBY):
         super().__init__()
 
         self._local_account = Account.privateKeyToAccount(private_key)

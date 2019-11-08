@@ -984,9 +984,12 @@ cdef class IDEXMarket(MarketBase):
         return order_books[symbol]
 
     async def start_network(self):
+        print('starting network <<<< >>>>')
         if self._order_tracker_task is not None:
             self._stop_network()
+        print('starting order_book_tracker <<<< >>>>')
         self._order_tracker_task = safe_ensure_future(self._order_book_tracker.start())
+        print('starting status_polling_loop <<<< >>>>')
         self._status_polling_task = safe_ensure_future(self._status_polling_loop())
 
     def _stop_network(self):

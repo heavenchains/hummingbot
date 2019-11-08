@@ -4,12 +4,7 @@ import asyncio
 import aiohttp
 import logging
 import pandas as pd
-from typing import (
-    AsyncIterable,
-    Dict,
-    List,
-    Optional
-)
+from typing import AsyncIterable, Dict, List, Optional
 import re
 import time
 import ujson
@@ -23,10 +18,7 @@ from hummingbot.market.ddex.ddex_active_order_tracker import DDEXActiveOrderTrac
 from hummingbot.market.ddex.ddex_order_book import DDEXOrderBook
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from hummingbot.core.data_type.order_book_tracker_entry import (
-    DDEXOrderBookTrackerEntry,
-    OrderBookTrackerEntry
-)
+from hummingbot.core.data_type.order_book_tracker_entry import DDEXOrderBookTrackerEntry, OrderBookTrackerEntry
 from hummingbot.core.data_type.order_book_message import DDEXOrderBookMessage
 
 TRADING_PAIR_FILTER = re.compile(r"(TUSD|WETH|DAI)$")
@@ -63,10 +55,7 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
         Returned data frame should have symbol as index and include usd volume, baseAsset and quoteAsset
         """
         async with aiohttp.ClientSession() as client:
-            market_response, ticker_response = await safe_gather(
-                client.get(MARKETS_URL),
-                client.get(TICKERS_URL)
-            )
+            market_response, ticker_response = await safe_gather(client.get(MARKETS_URL), client.get(TICKERS_URL))
             market_response: aiohttp.ClientResponse = market_response
             ticker_response: aiohttp.ClientResponse = ticker_response
 
@@ -82,25 +71,29 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
             market_data: Dict[str, any] = {
                 item["id"]: {attr_name_map[k]: item[k] for k in ["baseToken", "quoteToken"]}
-                for item in market_data["data"]["markets"]}
+                for item in market_data["data"]["markets"]
+            }
 
-            ticker_data: List[Dict[str, any]] = [{**ticker_item, **market_data[ticker_item["marketId"]]}
-                                                 for ticker_item in ticker_data["data"]["tickers"]
-                                                 if ticker_item["marketId"] in market_data]
+            ticker_data: List[Dict[str, any]] = [
+                {**ticker_item, **market_data[ticker_item["marketId"]]}
+                for ticker_item in ticker_data["data"]["tickers"]
+                if ticker_item["marketId"] in market_data
+            ]
 
-            all_markets: pd.DataFrame = pd.DataFrame.from_records(data=ticker_data,
-                                                                  index="marketId")
+            all_markets: pd.DataFrame = pd.DataFrame.from_records(data=ticker_data, index="marketId")
 
             dai_to_eth_price: float = float(all_markets.loc["DAI-WETH"].price)
             weth_to_usd_price: float = float(all_markets.loc["WETH-TUSD"].price)
             usd_volume: float = [
                 (
-                    quoteVolume * dai_to_eth_price * weth_to_usd_price if symbol.endswith("DAI") else
-                    quoteVolume * weth_to_usd_price if symbol.endswith("WETH") else
-                    quoteVolume
+                    quoteVolume * dai_to_eth_price * weth_to_usd_price
+                    if symbol.endswith("DAI")
+                    else quoteVolume * weth_to_usd_price
+                    if symbol.endswith("WETH")
+                    else quoteVolume
                 )
-                for symbol, quoteVolume in zip(all_markets.index,
-                                               all_markets.volume.astype("float"))]
+                for symbol, quoteVolume in zip(all_markets.index, all_markets.volume.astype("float"))
+            ]
             all_markets["USDVolume"] = usd_volume
             return all_markets.sort_values("USDVolume", ascending=False)
 
@@ -118,28 +111,30 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().network(
                     f"Error getting active exchange information.",
                     exc_info=True,
-                    app_warning_msg=f"Error getting active exchange information. Check network connection."
+                    app_warning_msg=f"Error getting active exchange information. Check network connection.",
                 )
         return self._symbols
 
     async def get_snapshot(self, client: aiohttp.ClientSession, trading_pair: str, level: int = 3) -> Dict[str, any]:
-            params: Dict = {"level": level}
-            retry: int = 3
-            while retry > 0:
-                try:
-                    async with client.get(f"{REST_URL}/markets/{trading_pair}/orderbook", params=params) as response:
-                        response: aiohttp.ClientResponse = response
-                        if response.status != 200:
-                            raise IOError(f"Error fetching DDex market snapshot for {trading_pair}. "
-                                          f"HTTP status is {response.status}.")
-                        data: Dict[str, any] = await response.json()
-                        return data
-                except Exception:
-                    self.logger().warning(f"Error requesting order book snapshot. Retrying {retry} more times.")
-                    await asyncio.sleep(10)
-                    retry -= 1
-                    if retry == 0:
-                        raise
+        params: Dict = {"level": level}
+        retry: int = 3
+        while retry > 0:
+            try:
+                async with client.get(f"{REST_URL}/markets/{trading_pair}/orderbook", params=params) as response:
+                    response: aiohttp.ClientResponse = response
+                    if response.status != 200:
+                        raise IOError(
+                            f"Error fetching DDex market snapshot for {trading_pair}. "
+                            f"HTTP status is {response.status}."
+                        )
+                    data: Dict[str, any] = await response.json()
+                    return data
+            except Exception:
+                self.logger().warning(f"Error requesting order book snapshot. Retrying {retry} more times.")
+                await asyncio.sleep(10)
+                retry -= 1
+                if retry == 0:
+                    raise
 
     async def get_tracking_pairs(self) -> Dict[str, OrderBookTrackerEntry]:
         # Get the currently active markets
@@ -152,9 +147,7 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair, 3)
                     snapshot_timestamp: float = time.time()
                     snapshot_msg: DDEXOrderBookMessage = DDEXOrderBook.snapshot_message_from_exchange(
-                        snapshot,
-                        snapshot_timestamp,
-                        {"marketId": trading_pair}
+                        snapshot, snapshot_timestamp, {"marketId": trading_pair}
                     )
                     ddex_order_book: OrderBook = self.order_book_create_function()
                     ddex_active_order_tracker: DDEXActiveOrderTracker = DDEXActiveOrderTracker()
@@ -162,20 +155,18 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     ddex_order_book.apply_snapshot(bids, asks, snapshot_msg.update_id)
 
                     retval[trading_pair] = DDEXOrderBookTrackerEntry(
-                        trading_pair,
-                        snapshot_timestamp,
-                        ddex_order_book,
-                        ddex_active_order_tracker
+                        trading_pair, snapshot_timestamp, ddex_order_book, ddex_active_order_tracker
                     )
 
-                    self.logger().info(f"Initialized order book for {trading_pair}. "
-                                       f"{index+1}/{number_of_pairs} completed.")
+                    self.logger().info(
+                        f"Initialized order book for {trading_pair}. " f"{index+1}/{number_of_pairs} completed."
+                    )
                     await asyncio.sleep(1.3)
                 except IOError:
                     self.logger().network(
                         f"Error getting snapshot for {trading_pair}.",
                         exc_info=True,
-                        app_warning_msg=f"Error getting snapshot for {trading_pair}. Check network connection."
+                        app_warning_msg=f"Error getting snapshot for {trading_pair}. Check network connection.",
                     )
                     await asyncio.sleep(5.0)
                 except Exception:
@@ -185,8 +176,7 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
             self._get_tracking_pair_done_event.set()
             return retval
 
-    async def _inner_messages(self,
-                              ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
+    async def _inner_messages(self, ws: websockets.WebSocketClientProtocol) -> AsyncIterable[str]:
         # Terminate the recv() loop as soon as the next message timed out, so the outer loop can reconnect.
         try:
             while True:
@@ -219,10 +209,7 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     ws: websockets.WebSocketClientProtocol = ws
                     request: Dict[str, any] = {
                         "type": "subscribe",
-                        "channels": [{
-                            "name": "full",
-                            "marketIds": trading_pairs
-                        }]
+                        "channels": [{"name": "full", "marketIds": trading_pairs}],
                     }
                     await ws.send(ujson.dumps(request))
                     async for raw_msg in self._inner_messages(ws):
@@ -240,7 +227,7 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().network(
                     f"Error getting order book diff messages.",
                     exc_info=True,
-                    app_warning_msg=f"Error getting order book diff messages. Check network connection."
+                    app_warning_msg=f"Error getting order book diff messages. Check network connection.",
                 )
                 await asyncio.sleep(30.0)
 
@@ -255,9 +242,7 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             snapshot: Dict[str, any] = await self.get_snapshot(client, trading_pair)
                             snapshot_timestamp: float = time.time()
                             snapshot_msg: DDEXOrderBookMessage = DDEXOrderBook.snapshot_message_from_exchange(
-                                snapshot,
-                                snapshot_timestamp,
-                                {"marketId": trading_pair}
+                                snapshot, snapshot_timestamp, {"marketId": trading_pair}
                             )
                             output.put_nowait(snapshot_msg)
                             self.logger().debug(f"Saved order book snapshot for {trading_pair} at {snapshot_timestamp}")
@@ -268,7 +253,7 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                             self.logger().network(
                                 f"Error getting snapshot for {trading_pair}.",
                                 exc_info=True,
-                                app_warning_msg=f"Error getting snapshot for {trading_pair}. Check network connection."
+                                app_warning_msg=f"Error getting snapshot for {trading_pair}. Check network connection.",
                             )
                             await asyncio.sleep(5.0)
                         except Exception:
@@ -284,6 +269,6 @@ class DDEXAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().network(
                     f"Unexpected error listening for order book snapshot.",
                     exc_info=True,
-                    app_warning_msg=f"Unexpected error listening for order book snapshot. Check network connection."
+                    app_warning_msg=f"Unexpected error listening for order book snapshot. Check network connection.",
                 )
                 await asyncio.sleep(5.0)

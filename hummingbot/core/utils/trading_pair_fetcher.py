@@ -1,9 +1,5 @@
 import aiohttp
-from typing import (
-    List,
-    Dict,
-    Any,
-)
+from typing import List, Dict, Any
 
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
@@ -58,7 +54,7 @@ class TradingPairFetcher:
                     try:
                         response = await response.json()
                         markets = response.get("data").get("markets")
-                        trading_pairs = list(map(lambda details: details.get('id'), markets))
+                        trading_pairs = list(map(lambda details: details.get("id"), markets))
                         return trading_pairs
                     except Exception:
                         pass
@@ -71,12 +67,13 @@ class TradingPairFetcher:
         page_count = 1
         while True:
             async with aiohttp.ClientSession() as client:
-                async with client.get(f"{RADAR_RELAY_ENDPOINT}?perPage=100&page={page_count}", timeout=API_CALL_TIMEOUT) \
-                        as response:
+                async with client.get(
+                    f"{RADAR_RELAY_ENDPOINT}?perPage=100&page={page_count}", timeout=API_CALL_TIMEOUT
+                ) as response:
                     if response.status == 200:
                         try:
                             markets = await response.json()
-                            new_trading_pairs = set(map(lambda details: details.get('id'), markets))
+                            new_trading_pairs = set(map(lambda details: details.get("id"), markets))
                             if len(new_trading_pairs) == 0:
                                 break
                             else:
@@ -93,12 +90,13 @@ class TradingPairFetcher:
         page_count = 1
         while True:
             async with aiohttp.ClientSession() as client:
-                async with client.get(f"{BAMBOO_RELAY_ENDPOINT}?perPage=1000&page={page_count}",
-                                      timeout=API_CALL_TIMEOUT) as response:
+                async with client.get(
+                    f"{BAMBOO_RELAY_ENDPOINT}?perPage=1000&page={page_count}", timeout=API_CALL_TIMEOUT
+                ) as response:
                     if response.status == 200:
                         try:
                             markets = await response.json()
-                            new_trading_pairs = set(map(lambda details: details.get('id'), markets))
+                            new_trading_pairs = set(map(lambda details: details.get("id"), markets))
                             if len(new_trading_pairs) == 0:
                                 break
                             else:
@@ -116,7 +114,7 @@ class TradingPairFetcher:
                 if response.status == 200:
                     try:
                         markets = await response.json()
-                        return list(map(lambda details: details.get('id'), markets))
+                        return list(map(lambda details: details.get("id"), markets))
                     except Exception:
                         pass
                         # Do nothing if the request fails -- there will be no autocomplete for coinbase trading pairs
@@ -159,9 +157,7 @@ class TradingPairFetcher:
                 if response.status == 200:
                     try:
                         all_trading_pairs: List[Dict[str, any]] = await response.json()
-                        return [item["symbol"]
-                                for item in all_trading_pairs
-                                if item["status"] == "ONLINE"]
+                        return [item["symbol"] for item in all_trading_pairs if item["status"] == "ONLINE"]
                     except Exception:
                         pass
                         # Do nothing if the request fails -- there will be no autocomplete for bittrex trading pairs
@@ -185,7 +181,7 @@ class TradingPairFetcher:
 
     @staticmethod
     def fetch_tex_trading_pairs() -> List[str]:
-        return ["fLQD-fETH", "fLQD-fCO2", "fCO2-fETH", "fFCO-fETH", "fLQD-fFCO", "fFCO-fCO2"]
+        return ["fLQD-fETH"]
 
     async def fetch_all(self):
         binance_trading_pairs = await self.fetch_binance_trading_pairs()
@@ -208,6 +204,6 @@ class TradingPairFetcher:
             "coinbase_pro": coinbase_pro_trading_pairs,
             "huobi": huobi_trading_pairs,
             "bittrex": bittrex_trading_pairs,
-            "tex": tex_trading_pairs
+            "tex": tex_trading_pairs,
         }
         self.ready = True

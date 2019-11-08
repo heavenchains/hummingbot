@@ -16,6 +16,7 @@ from hummingbot.market.binance.binance_market import BinanceMarket
 from hummingbot.market.bittrex.bittrex_market import BittrexMarket
 from hummingbot.market.coinbase_pro.coinbase_pro_market import CoinbaseProMarket
 from hummingbot.market.ddex.ddex_market import DDEXMarket
+from hummingbot.market.tex.tex_market import TEXMarket
 from hummingbot.market.huobi.huobi_market import HuobiMarket
 from hummingbot.market.market_base import MarketBase
 from hummingbot.market.paper_trade import create_paper_trade_market
@@ -60,7 +61,8 @@ MARKET_CLASSES = {
     "idex": IDEXMarket,
     "radar_relay": RadarRelayMarket,
     "dolomite": DolomiteMarket,
-    "bittrex": BittrexMarket
+    "bittrex": BittrexMarket,
+    "tex": TEXMarket,
 }
 
 
@@ -170,17 +172,19 @@ class HummingbotApplication(*commands):
                     kill_timeout = self.IDEX_KILL_TIMEOUT
                 # By default, the bot does not cancel orders on exit on Radar Relay or Bamboo Relay,
                 # since all open orders will expire in a short window
-                if not on_chain_cancel_on_exit and (market_name == "radar_relay" or (market_name == "bamboo_relay" and not bamboo_relay_use_coordinator)):
+                if not on_chain_cancel_on_exit and (
+                    market_name == "radar_relay" or (market_name == "bamboo_relay" and not bamboo_relay_use_coordinator)
+                ):
                     continue
                 cancellation_results = await market.cancel_all(kill_timeout)
                 uncancelled = list(filter(lambda cr: cr.success is False, cancellation_results))
                 if len(uncancelled) > 0:
                     success = False
                     uncancelled_order_ids = list(map(lambda cr: cr.order_id, uncancelled))
-                    self._notify("\nFailed to cancel the following orders on %s:\n%s" % (
-                        market_name,
-                        '\n'.join(uncancelled_order_ids)
-                    ))
+                    self._notify(
+                        "\nFailed to cancel the following orders on %s:\n%s"
+                        % (market_name, "\n".join(uncancelled_order_ids))
+                    )
         except Exception:
             self.logger().error(f"Error canceling outstanding orders.", exc_info=True)
             success = False
@@ -248,6 +252,15 @@ class HummingbotApplication(*commands):
                     trading_required=self._trading_required,
                 )
 
+            elif market_name == "tex" and self.wallet:
+                market = TEXMarket(
+                    wallet=self.wallet,
+                    ethereum_rpc_url=ethereum_rpc_url,
+                    order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                    symbols=symbols,
+                    trading_required=self._trading_required,
+                )
+
             elif market_name == "idex" and self.wallet:
                 idex_api_key: str = global_config_map.get("idex_api_key").value
                 try:
@@ -298,19 +311,23 @@ class HummingbotApplication(*commands):
                 coinbase_pro_secret_key = global_config_map.get("coinbase_pro_secret_key").value
                 coinbase_pro_passphrase = global_config_map.get("coinbase_pro_passphrase").value
 
-                market = CoinbaseProMarket(coinbase_pro_api_key,
-                                           coinbase_pro_secret_key,
-                                           coinbase_pro_passphrase,
-                                           symbols=symbols,
-                                           trading_required=self._trading_required)
+                market = CoinbaseProMarket(
+                    coinbase_pro_api_key,
+                    coinbase_pro_secret_key,
+                    coinbase_pro_passphrase,
+                    symbols=symbols,
+                    trading_required=self._trading_required,
+                )
             elif market_name == "huobi":
                 huobi_api_key = global_config_map.get("huobi_api_key").value
                 huobi_secret_key = global_config_map.get("huobi_secret_key").value
-                market = HuobiMarket(huobi_api_key,
-                                     huobi_secret_key,
-                                     order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                                     symbols=symbols,
-                                     trading_required=self._trading_required)
+                market = HuobiMarket(
+                    huobi_api_key,
+                    huobi_secret_key,
+                    order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                    symbols=symbols,
+                    trading_required=self._trading_required,
+                )
             elif market_name == "dolomite" and self.wallet:
                 market = DolomiteMarket(
                     wallet=self.wallet,
@@ -323,11 +340,13 @@ class HummingbotApplication(*commands):
             elif market_name == "bittrex":
                 bittrex_api_key = global_config_map.get("bittrex_api_key").value
                 bittrex_secret_key = global_config_map.get("bittrex_secret_key").value
-                market = BittrexMarket(bittrex_api_key,
-                                       bittrex_secret_key,
-                                       order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
-                                       symbols=symbols,
-                                       trading_required=self._trading_required)
+                market = BittrexMarket(
+                    bittrex_api_key,
+                    bittrex_secret_key,
+                    order_book_tracker_data_source_type=OrderBookTrackerDataSourceType.EXCHANGE_API,
+                    symbols=symbols,
+                    trading_required=self._trading_required,
+                )
             else:
                 raise ValueError(f"Market name {market_name} is invalid.")
 
