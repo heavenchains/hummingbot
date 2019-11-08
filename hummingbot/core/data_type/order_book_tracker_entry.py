@@ -126,15 +126,18 @@ class CoinbaseProOrderBookTrackerEntry(OrderBookTrackerEntry):
 
 
 class DolomiteOrderBookTrackerEntry(OrderBookTrackerEntry):
-    def __init__(self, symbol: str, timestamp: float, order_book: OrderBook,
-                 active_order_tracker: DolomiteActiveOrderTracker):
+    def __init__(
+        self, symbol: str, timestamp: float, order_book: OrderBook, active_order_tracker: DolomiteActiveOrderTracker
+    ):
 
         self._active_order_tracker = active_order_tracker
         super(DolomiteOrderBookTrackerEntry, self).__init__(symbol, timestamp, order_book)
 
     def __repr__(self) -> str:
-        return f"DolomiteOrderBookTrackerEntry(symbol='{self._symbol}', timestamp='{self._timestamp}', " \
+        return (
+            f"DolomiteOrderBookTrackerEntry(symbol='{self._symbol}', timestamp='{self._timestamp}', "
             f"order_book='{self._order_book}')"
+        )
 
     @property
     def active_order_tracker(self) -> DolomiteActiveOrderTracker:

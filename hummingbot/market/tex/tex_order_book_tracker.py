@@ -11,7 +11,7 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.market.tex.tex_api_order_book_data_source import TEXAPIOrderBookDataSource
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.market.tex.tex_order_book import TEXOrderBook
-from hummingbot.core.data_type.order_book_tracker_entry import TEXOrderBookTrackerEntry
+from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 from hummingbot.core.data_type.order_book_message import TEXOrderBookMessage, OrderBookMessageType
 
 
@@ -73,13 +73,13 @@ class TEXOrderBookTracker(OrderBookTracker):
         tracking_symbols: Set[str] = set(
             [key for key in self._tracking_tasks.keys() if not self._tracking_tasks[key].done()]
         )
-        available_pairs: Dict[str, TEXOrderBookTrackerEntry] = await self.data_source.get_tracking_pairs()
+        available_pairs: Dict[str, OrderBookTrackerEntry] = await self.data_source.get_tracking_pairs()
         available_symbols: Set[str] = set(available_pairs.keys())
         new_symbols: Set[str] = available_symbols - tracking_symbols
         deleted_symbols: Set[str] = tracking_symbols - available_symbols
 
         for symbol in new_symbols:
-            order_book_tracker_entry: TEXOrderBookTrackerEntry = available_pairs[symbol]
+            order_book_tracker_entry: OrderBookTrackerEntry = available_pairs[symbol]
             self._order_books[symbol] = order_book_tracker_entry.order_book
             self._tracking_message_queues[symbol] = asyncio.Queue()
             self._tracking_tasks[symbol] = safe_ensure_future(self._track_single_book(symbol))
